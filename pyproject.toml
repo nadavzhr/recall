@@ -1,0 +1,23 @@
+[project]
+name = "recall"
+version = "0.1.0"
+description = "A simple clipboard manager for windows."
+authors = [
+    { name = "Nadav", email = "nadavzhr@gmail.com" },
+]
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "pywin32>=311",
+]
+
+[project.optional-dependencies]
+dev = [
+    "ruff",
+    "ty",
+    "pytest",
+]
+
+[build-system]
+requires = ["uv_build>=0.11.7,<0.12.0"]
+build-backend = "uv_build"
