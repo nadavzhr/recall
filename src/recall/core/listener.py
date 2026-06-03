@@ -24,16 +24,19 @@ WINDOW_TITLE = "RecallHiddenWindow"
 class ClipboardListener:
     """Listen for clipboard updates in a background thread and queue events."""
 
-    def __init__(self, event_queue: Queue[ClipboardEvent]) -> None:
+    def __init__(self, event_queue: Queue[ClipboardEvent], command_queue: Queue[str] | None = None) -> None:
         """Create a clipboard listener.
 
         Args:
             event_queue: Thread-safe queue where updates are posted.
+            command_queue: Optional queue to send application commands (e.g., hotkey triggers).
         """
         self._queue = event_queue
+        self._command_queue = command_queue
         self._last_content_hash: int | None = None
         self._hwnd: int | None = None
         self._thread: threading.Thread | None = None
+        self._hotkey_id = 1
 
     def _process_update(self) -> None:
         """Inspect the clipboard and queue events for supported formats."""
@@ -69,11 +72,19 @@ class ClipboardListener:
             self._process_update()
             return 0
 
+        if msg == win32con.WM_HOTKEY:
+            logger.info("WM_HOTKEY received! wparam: %s, hotkey_id: %s", wparam, self._hotkey_id)
+            if wparam == self._hotkey_id and self._command_queue:
+                logger.info("Putting SHOW_GUI into command queue.")
+                self._command_queue.put("SHOW_GUI")
+            return 0
+
         if msg == win32con.WM_CLOSE:
             win32gui.DestroyWindow(hwnd)
             return 0
 
         if msg == win32con.WM_DESTROY:
+            ctypes.windll.user32.UnregisterHotKey(hwnd, self._hotkey_id)
             ctypes.windll.user32.RemoveClipboardFormatListener(hwnd)
             self._hwnd = None
             win32gui.PostQuitMessage(0)

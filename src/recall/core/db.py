@@ -7,6 +7,7 @@ from pathlib import Path
 import sqlite3
 
 from recall.models import ClipboardEntry
+from recall import config
 
 logger = logging.getLogger(__name__)
 
@@ -14,17 +15,10 @@ logger = logging.getLogger(__name__)
 class RecallDatabase:
     """Manages storage for clipboard entries with de-duplication and limits."""
 
-    def __init__(
-        self,
-        db_name: str = ".recall.db",
-        max_items: int = 200,
-    ) -> None:
+    def __init__(self) -> None:
         """Initialize the database and ensure the schema exists."""
-        if max_items <= 0:
-            raise ValueError("max_items must be positive.")
-
-        self.db_path = Path.home() / db_name
-        self.max_items = max_items
+        self.db_path: Path = config.DB_PATH
+        self.max_items: int = config.MAX_ITEMS
         self._init_db()
 
     def _connect(self) -> sqlite3.Connection:
