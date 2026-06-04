@@ -8,8 +8,10 @@ from PIL import Image
 
 from recall.models import ClipboardEntry
 
+
 class Tooltip:
     """Simple hover tooltip for a widget."""
+
     def __init__(self, widget: ctk.CTkBaseClass, text: str):
         self.widget = widget
         self.text = text
@@ -23,7 +25,7 @@ class Tooltip:
 
         x = self.widget.winfo_rootx() + 20
         y = self.widget.winfo_rooty() + self.widget.winfo_height() + 5
-        
+
         # Use standard tk.Toplevel to avoid CustomTkinter async initialization issues during rapid hover
         self.tooltip_window = tk.Toplevel(self.widget)
         self.tooltip_window.wm_overrideredirect(True)
@@ -31,14 +33,14 @@ class Tooltip:
         # Ensure it floats above
         self.tooltip_window.attributes("-topmost", True)
         self.tooltip_window.configure(bg="#3f3f46")
-        
+
         label = ctk.CTkLabel(
-            self.tooltip_window, 
-            text=self.text, 
-            fg_color="#3f3f46", 
-            text_color="#e4e4e7", 
-            corner_radius=4, 
-            font=("Segoe UI", 12)
+            self.tooltip_window,
+            text=self.text,
+            fg_color="#3f3f46",
+            text_color="#e4e4e7",
+            corner_radius=4,
+            font=("Segoe UI", 12),
         )
         label.pack(padx=6, pady=4)
 
@@ -50,18 +52,18 @@ class Tooltip:
 
 class ItemWidget(ctk.CTkButton):
     """A widget representing a single clipboard history item."""
-    
+
     def __init__(
-        self, 
-        master: ctk.CTkFrame | ctk.CTkScrollableFrame, 
-        item: ClipboardEntry, 
-        on_click: Callable[[ClipboardEntry], None], 
+        self,
+        master: ctk.CTkFrame | ctk.CTkScrollableFrame,
+        item: ClipboardEntry,
+        on_click: Callable[[ClipboardEntry], None],
         on_pin: Callable[[ClipboardEntry], None],
         on_delete: Callable[[ClipboardEntry], None],
-        **kwargs
+        **kwargs,
     ):
         """Initialize the item widget.
-        
+
         Args:
             master: The parent widget.
             item: The clipboard entry to display.
@@ -73,10 +75,10 @@ class ItemWidget(ctk.CTkButton):
         self.on_click_callback = on_click
         self.on_pin_callback = on_pin
         self.on_delete_callback = on_delete
-        
+
         preview_text = ""
         image = None
-        
+
         if item.content_type == "text" and item.content_text:
             preview_text = item.content_text.strip().replace("\n", " ↵ ")
             if len(preview_text) > 100:
@@ -84,7 +86,9 @@ class ItemWidget(ctk.CTkButton):
         elif item.content_type == "image" and item.thumbnail_data:
             try:
                 pil_image = Image.open(io.BytesIO(item.thumbnail_data))
-                image = ctk.CTkImage(light_image=pil_image, dark_image=pil_image, size=pil_image.size)
+                image = ctk.CTkImage(
+                    light_image=pil_image, dark_image=pil_image, size=pil_image.size
+                )
             except Exception:
                 preview_text = "<Corrupted Image>"
         else:
@@ -104,23 +108,25 @@ class ItemWidget(ctk.CTkButton):
             text_color="#e4e4e7",
             hover_color="#3f3f46",
             font=("Segoe UI", 14, "bold" if item.is_pinned else "normal"),
-            **kwargs
+            **kwargs,
         )
-        
+
         # Tooltip formatting
         kb_size = item.size_bytes / 1024
         added_str = item.timestamp.strftime("%Y-%m-%d %H:%M")
         used_str = item.last_used_timestamp.strftime("%Y-%m-%d %H:%M")
-        tooltip_text = f"Size: {kb_size:.1f} KB\nAdded: {added_str}\nLast Used: {used_str}"
+        tooltip_text = (
+            f"Size: {kb_size:.1f} KB\nAdded: {added_str}\nLast Used: {used_str}"
+        )
         self.tooltip = Tooltip(self, tooltip_text)
 
         # Bindings
         self.bind("<Double-Button-1>", self._handle_click)
         self.bind("<Return>", self._handle_click)
-        
+
         # Context menu binding (Right Click)
         self.bind("<Button-3>", self._show_context_menu)
-        
+
         # Allow selection-based deletion (Delete key) if we have focus
         self.bind("<Delete>", lambda e: self._handle_delete())
 
@@ -135,17 +141,18 @@ class ItemWidget(ctk.CTkButton):
     def _handle_delete(self) -> None:
         """Trigger the delete callback."""
         self.on_delete_callback(self.item)
-        
+
     def _show_context_menu(self, event) -> None:
         """Show the right-click context menu."""
-        menu = tk.Menu(self, tearoff=0, bg="#27272a", fg="#e4e4e7", font=("Segoe UI", 10))
+        menu = tk.Menu(
+            self, tearoff=0, bg="#27272a", fg="#e4e4e7", font=("Segoe UI", 10)
+        )
         pin_label = "Unpin" if self.item.is_pinned else "Pin"
         menu.add_command(label=pin_label, command=self._handle_pin)
         menu.add_separator()
         menu.add_command(label="Delete", command=self._handle_delete)
-        
+
         try:
             menu.tk_popup(event.x_root, event.y_root)
         finally:
             menu.grab_release()
-

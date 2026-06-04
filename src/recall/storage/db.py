@@ -31,7 +31,7 @@ class RecallDatabase:
         with self._connect() as conn:
             cursor = conn.cursor()
             # We use a unique constraint on content to allow for 'Move-to-Top' logic.
-            # Note: For large text, we might want to index a hash instead, 
+            # Note: For large text, we might want to index a hash instead,
             # but for 200 items, SQLite handles text comparison very efficiently.
             cursor.execute(
                 """
@@ -49,24 +49,36 @@ class RecallDatabase:
                 )
                 """
             )
-            
+
             # Migration: Ensure new columns exist
             cursor.execute("PRAGMA table_info(clipboard_history)")
             columns = [info[1] for info in cursor.fetchall()]
             if "content_data" not in columns:
-                cursor.execute("ALTER TABLE clipboard_history ADD COLUMN content_data BLOB")
+                cursor.execute(
+                    "ALTER TABLE clipboard_history ADD COLUMN content_data BLOB"
+                )
             if "thumbnail_data" not in columns:
-                cursor.execute("ALTER TABLE clipboard_history ADD COLUMN thumbnail_data BLOB")
+                cursor.execute(
+                    "ALTER TABLE clipboard_history ADD COLUMN thumbnail_data BLOB"
+                )
             if "is_pinned" not in columns:
-                cursor.execute("ALTER TABLE clipboard_history ADD COLUMN is_pinned BOOLEAN DEFAULT 0")
+                cursor.execute(
+                    "ALTER TABLE clipboard_history ADD COLUMN is_pinned BOOLEAN DEFAULT 0"
+                )
             if "last_used_timestamp" not in columns:
                 # SQLite ALTER TABLE does not support CURRENT_TIMESTAMP as a default.
-                cursor.execute("ALTER TABLE clipboard_history ADD COLUMN last_used_timestamp DATETIME")
+                cursor.execute(
+                    "ALTER TABLE clipboard_history ADD COLUMN last_used_timestamp DATETIME"
+                )
                 # Backfill last_used_timestamp with timestamp
-                cursor.execute("UPDATE clipboard_history SET last_used_timestamp = timestamp")
+                cursor.execute(
+                    "UPDATE clipboard_history SET last_used_timestamp = timestamp"
+                )
             if "size_bytes" not in columns:
-                cursor.execute("ALTER TABLE clipboard_history ADD COLUMN size_bytes INTEGER DEFAULT 0")
-            
+                cursor.execute(
+                    "ALTER TABLE clipboard_history ADD COLUMN size_bytes INTEGER DEFAULT 0"
+                )
+
             conn.commit()
 
     def insert_entry(
@@ -80,13 +92,17 @@ class RecallDatabase:
         if not content_type:
             raise ValueError("content_type must be non-empty.")
 
-        if content_type == "text" and content_text is not None and not content_text.strip():
+        if (
+            content_type == "text"
+            and content_text is not None
+            and not content_text.strip()
+        ):
             return
 
         # Calculate size
         size_bytes = 0
         if content_text is not None:
-            size_bytes = len(content_text.encode('utf-8'))
+            size_bytes = len(content_text.encode("utf-8"))
         elif content_data is not None:
             size_bytes = len(content_data)
 
@@ -98,7 +114,7 @@ class RecallDatabase:
             # 2. If it does, we update its timestamp instead of creating a duplicate.
             # 3. We use the 'IS' operator because it is null-safe (NULL IS NULL is true),
             #    allowing us to match entries with optional fields.
-            # 4. We avoid 'UPSERT' because UNIQUE constraints on nullable columns 
+            # 4. We avoid 'UPSERT' because UNIQUE constraints on nullable columns
             #    don't trigger conflicts for NULL values in SQLite.
             cursor.execute(
                 "SELECT id FROM clipboard_history WHERE content_text IS ? AND content_data IS ?",
@@ -119,7 +135,13 @@ class RecallDatabase:
                     INSERT INTO clipboard_history (content_type, content_text, content_data, thumbnail_data, size_bytes, last_used_timestamp)
                     VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
                     """,
-                    (content_type, content_text, content_data, thumbnail_data, size_bytes),
+                    (
+                        content_type,
+                        content_text,
+                        content_data,
+                        thumbnail_data,
+                        size_bytes,
+                    ),
                 )
             conn.commit()
 
@@ -167,17 +189,19 @@ class RecallDatabase:
             # SQLite CURRENT_TIMESTAMP is 'YYYY-MM-DD HH:MM:SS'
             dt = datetime.strptime(row[5], "%Y-%m-%d %H:%M:%S")
             last_used_dt = datetime.strptime(row[7], "%Y-%m-%d %H:%M:%S")
-            entries.append(ClipboardEntry(
-                item_id=row[0], 
-                content_type=row[1], 
-                content_text=row[2], 
-                content_data=row[3], 
-                thumbnail_data=row[4], 
-                timestamp=dt,
-                is_pinned=bool(row[6]),
-                last_used_timestamp=last_used_dt,
-                size_bytes=row[8]
-            ))
+            entries.append(
+                ClipboardEntry(
+                    item_id=row[0],
+                    content_type=row[1],
+                    content_text=row[2],
+                    content_data=row[3],
+                    thumbnail_data=row[4],
+                    timestamp=dt,
+                    is_pinned=bool(row[6]),
+                    last_used_timestamp=last_used_dt,
+                    size_bytes=row[8],
+                )
+            )
         return entries
 
     def toggle_pin(self, item_id: int) -> None:
@@ -186,7 +210,7 @@ class RecallDatabase:
             cursor = conn.cursor()
             cursor.execute(
                 "UPDATE clipboard_history SET is_pinned = NOT is_pinned WHERE id = ?",
-                (item_id,)
+                (item_id,),
             )
             conn.commit()
 

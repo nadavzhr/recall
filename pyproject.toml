@@ -19,9 +19,9 @@ recall = "recall.main:main"
 
 [project.optional-dependencies]
 dev = [
-    "ruff",
-    "ty",
-    "pytest",
+    "ruff>=0.15.15",
+    "ty>=0.0.42",
+    "types-pywin32>=311.0.0.20260521",
 ]
 
 [build-system]

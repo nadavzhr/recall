@@ -4,6 +4,7 @@ from __future__ import annotations
 
 TRUNCATE_LIMIT = 75
 
+
 def truncate_text(text: str, limit: int = TRUNCATE_LIMIT) -> str:
     """Return a clipped preview of the text for logging."""
     if len(text) <= limit:

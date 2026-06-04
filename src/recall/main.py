@@ -34,7 +34,9 @@ def process_event(event: ClipboardEvent, database: RecallDatabase) -> None:
         logger.exception("Failed to store clipboard item")
 
 
-def ingest_worker(event_queue: queue.Queue[ClipboardEvent], database: RecallDatabase) -> None:
+def ingest_worker(
+    event_queue: queue.Queue[ClipboardEvent], database: RecallDatabase
+) -> None:
     """Background thread to process events from the listener queue."""
     while True:
         try:
@@ -52,10 +54,7 @@ def main() -> None:
     logging.basicConfig(
         level=logging.INFO,
         format="[%(levelname)s] [%(asctime)s] %(message)s",
-        handlers=[
-            logging.FileHandler(config.LOG_FILE),
-            logging.StreamHandler()
-        ]
+        handlers=[logging.FileHandler(config.LOG_FILE), logging.StreamHandler()],
     )
     logging.Formatter.converter = time.gmtime  # Use UTC (GMT) for timestamps
 
@@ -64,29 +63,37 @@ def main() -> None:
     database = RecallDatabase()
     event_queue: queue.Queue[ClipboardEvent] = queue.Queue()
     command_queue: queue.Queue[Command] = queue.Queue()
-    
-    clipboard_listener = ClipboardListener(event_queue=event_queue, command_queue=command_queue)
+
+    clipboard_listener = ClipboardListener(
+        event_queue=event_queue, command_queue=command_queue
+    )
 
     # Start the DB ingestion thread
-    ingest_thread = threading.Thread(target=ingest_worker, args=(event_queue, database), daemon=True)
+    ingest_thread = threading.Thread(
+        target=ingest_worker, args=(event_queue, database), daemon=True
+    )
     ingest_thread.start()
 
     try:
         import keyboard
+
         clipboard_listener.start()
-        
+
         # Setup global hotkey using keyboard module
         def trigger_gui():
             logger.info("Hotkey pressed. Enqueueing SHOW_GUI command.")
             command_queue.put(Command.SHOW_GUI)
-            
+
         keyboard.add_hotkey(config.HOTKEY_STRING, trigger_gui)
-        
-        logger.info("Recall service active and listening. Press %s to show UI.", config.HOTKEY_STRING)
+
+        logger.info(
+            "Recall service active and listening. Press %s to show UI.",
+            config.HOTKEY_STRING,
+        )
 
         # Run the UI on the main thread
         app = RecallUI(db=database, command_queue=command_queue)
-        app.mainloop()  # type: ignore
+        app.mainloop()
 
     except KeyboardInterrupt:
         logger.info("Recall service received interrupt signal.")

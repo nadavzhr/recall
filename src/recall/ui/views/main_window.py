@@ -2,14 +2,18 @@
 
 import queue
 import customtkinter as ctk
-import time
 
 from recall.storage.db import RecallDatabase
-from recall.clipboard.operations import set_clipboard_text, simulate_paste, set_clipboard_image
+from recall.clipboard.operations import (
+    set_clipboard_text,
+    simulate_paste,
+    set_clipboard_image,
+)
 from recall.models import ClipboardEntry
 from recall.ui.commands import Command
 from recall.ui.components.item_widget import ItemWidget
 from recall import config
+
 
 class RecallUI(ctk.CTk):
     """Main window for Recall UI."""
@@ -28,19 +32,19 @@ class RecallUI(ctk.CTk):
         # Configure window
         self.title("Recall")
         self.geometry(f"{config.UI_WIDTH}x{config.UI_HEIGHT}")
-        
+
         # Make the window hidden by default until hotkey is pressed
         self.withdraw()
-        
+
         # Basic styling
         ctk.set_appearance_mode("dark")
-        
+
         # Configure the main window background to be slightly lighter than pure black
         self.configure(fg_color="#18181b")
 
         # Keep window on top when visible
         self.attributes("-topmost", True)
-        
+
         # Modern Frameless 'Spotlight' look
         self.overrideredirect(True)
 
@@ -49,10 +53,10 @@ class RecallUI(ctk.CTk):
 
         self._build_ui()
         self._poll_commands()
-        
+
         # Close on Escape
         self.bind("<Escape>", lambda e: self._hide_window())
-        
+
         # Close on losing focus
         self.bind("<FocusOut>", self._on_focus_out)
 
@@ -65,9 +69,15 @@ class RecallUI(ctk.CTk):
     def _build_ui(self) -> None:
         """Construct the UI widgets."""
         # Main padding wrapper to give breathing room from the edges
-        self.main_frame = ctk.CTkFrame(self, fg_color="#18181b", corner_radius=12, border_width=1, border_color="#27272a")
+        self.main_frame = ctk.CTkFrame(
+            self,
+            fg_color="#18181b",
+            corner_radius=12,
+            border_width=1,
+            border_color="#27272a",
+        )
         self.main_frame.pack(fill="both", expand=True, padx=0, pady=0)
-        
+
         self.main_frame.grid_columnconfigure(0, weight=1)
         self.main_frame.grid_rowconfigure(1, weight=1)
 
@@ -89,7 +99,7 @@ class RecallUI(ctk.CTk):
             fg_color="#27272a",
             text_color="#e4e4e7",
             placeholder_text_color="#a1a1aa",
-            font=("Segoe UI", 20)
+            font=("Segoe UI", 20),
         )
         self.search_entry.grid(row=0, column=0, sticky="ew", padx=(0, 10))
 
@@ -101,21 +111,23 @@ class RecallUI(ctk.CTk):
             height=60,
             corner_radius=8,
             fg_color="#27272a",
-            hover_color="#ef4444", # Red hover
+            hover_color="#ef4444",  # Red hover
             text_color="#a1a1aa",
             font=("Segoe UI", 20, "bold"),
-            command=self._hide_window
+            command=self._hide_window,
         )
         self.close_btn.grid(row=0, column=1, sticky="e")
 
         # Scrollable list
         self.scrollable_frame = ctk.CTkScrollableFrame(
-            self.main_frame, 
+            self.main_frame,
             fg_color="transparent",
             scrollbar_button_color="#3f3f46",
-            scrollbar_button_hover_color="#52525b"
+            scrollbar_button_hover_color="#52525b",
         )
-        self.scrollable_frame.grid(row=1, column=0, padx=10, pady=(0, 10), sticky="nsew")
+        self.scrollable_frame.grid(
+            row=1, column=0, padx=10, pady=(0, 10), sticky="nsew"
+        )
         self.scrollable_frame.grid_columnconfigure(0, weight=1)
 
     def _on_search_change(self, *args) -> None:
@@ -130,20 +142,24 @@ class RecallUI(ctk.CTk):
 
         # Fetch from DB.
         items = self.db.get_recent(limit=50)
-        
+
         if search_query:
             query_lower = search_query.lower()
-            items = [item for item in items if item.content_text and query_lower in item.content_text.lower()]
+            items = [
+                item
+                for item in items
+                if item.content_text and query_lower in item.content_text.lower()
+            ]
 
         for i, item in enumerate(items):
-            # We don't skip empty content texts here anymore to support generic display 
+            # We don't skip empty content texts here anymore to support generic display
             # if images/other contents exist, though currently only text is handled.
             widget = ItemWidget(
-                self.scrollable_frame, 
-                item=item, 
+                self.scrollable_frame,
+                item=item,
                 on_click=self._on_item_click,
                 on_pin=self._on_item_pin,
-                on_delete=self._on_item_delete
+                on_delete=self._on_item_delete,
             )
             widget.grid(row=i, column=0, pady=4, padx=10, sticky="ew")
 
@@ -162,23 +178,27 @@ class RecallUI(ctk.CTk):
         if item.content_type == "text" and item.content_text:
             # 1. Update database to move it to the top
             self.db.insert_entry("text", content_text=item.content_text)
-            
+
             # 2. Set to Windows clipboard
             set_clipboard_text(item.content_text)
-            
+
             # 3. Hide window
             self._hide_window()
 
             # 4. Simulate Paste (small delay to allow window to lose focus)
             self.after(50, simulate_paste)
-            
+
         elif item.content_type == "image" and item.content_data:
             # 1. Update database to move it to the top
-            self.db.insert_entry("image", content_data=item.content_data, thumbnail_data=item.thumbnail_data)
-            
+            self.db.insert_entry(
+                "image",
+                content_data=item.content_data,
+                thumbnail_data=item.thumbnail_data,
+            )
+
             # 2. Set to Windows clipboard
             set_clipboard_image(item.content_data)
-            
+
             # 3. Hide window
             self._hide_window()
 
@@ -189,7 +209,7 @@ class RecallUI(ctk.CTk):
         """Display the UI."""
         self._refresh_items()
         self.search_var.set("")
-        
+
         # Center window on screen
         self.update_idletasks()
         screen_width = self.winfo_screenwidth()
@@ -197,9 +217,11 @@ class RecallUI(ctk.CTk):
         window_width = 600
         window_height = 500
         x = (screen_width // 2) - (window_width // 2)
-        y = (screen_height // 2) - (window_height // 2) - 100 # slightly higher than center
-        self.geometry(f'{window_width}x{window_height}+{x}+{y}')
-        
+        y = (
+            (screen_height // 2) - (window_height // 2) - 100
+        )  # slightly higher than center
+        self.geometry(f"{window_width}x{window_height}+{x}+{y}")
+
         self.deiconify()
         self.lift()
         self.focus_force()
@@ -219,10 +241,13 @@ class RecallUI(ctk.CTk):
                 cmd = self.command_queue.get_nowait()
                 if cmd == Command.SHOW_GUI:
                     import logging
-                    logging.getLogger(__name__).info("SHOW_GUI command received by UI thread. Showing window.")
+
+                    logging.getLogger(__name__).info(
+                        "SHOW_GUI command received by UI thread. Showing window."
+                    )
                     self._show_window()
         except queue.Empty:
             pass
-        
+
         # Poll again in 100ms
         self.after(100, self._poll_commands)
