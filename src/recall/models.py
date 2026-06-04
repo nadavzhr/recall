@@ -13,6 +13,9 @@ class ClipboardEntry:
     content_data: bytes | None
     thumbnail_data: bytes | None
     timestamp: datetime
+    is_pinned: bool
+    last_used_timestamp: datetime
+    size_bytes: int
 
 @dataclass(frozen=True)
 class ClipboardEvent:

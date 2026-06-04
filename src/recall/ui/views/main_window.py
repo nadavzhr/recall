@@ -5,7 +5,7 @@ import customtkinter as ctk
 import time
 
 from recall.storage.db import RecallDatabase
-from recall.clipboard.operations import set_clipboard_text, simulate_paste
+from recall.clipboard.operations import set_clipboard_text, simulate_paste, set_clipboard_image
 from recall.models import ClipboardEntry
 from recall.ui.commands import Command
 from recall.ui.components.item_widget import ItemWidget
@@ -52,6 +52,15 @@ class RecallUI(ctk.CTk):
         
         # Close on Escape
         self.bind("<Escape>", lambda e: self._hide_window())
+        
+        # Close on losing focus
+        self.bind("<FocusOut>", self._on_focus_out)
+
+    def _on_focus_out(self, event=None) -> None:
+        """Hide window when focus is lost to another application."""
+        # focus_get() returns None if no widget in this application has focus
+        if self.focus_get() is None:
+            self._hide_window()
 
     def _build_ui(self) -> None:
         """Construct the UI widgets."""
@@ -129,8 +138,24 @@ class RecallUI(ctk.CTk):
         for i, item in enumerate(items):
             # We don't skip empty content texts here anymore to support generic display 
             # if images/other contents exist, though currently only text is handled.
-            widget = ItemWidget(self.scrollable_frame, item=item, on_click=self._on_item_click)
+            widget = ItemWidget(
+                self.scrollable_frame, 
+                item=item, 
+                on_click=self._on_item_click,
+                on_pin=self._on_item_pin,
+                on_delete=self._on_item_delete
+            )
             widget.grid(row=i, column=0, pady=4, padx=10, sticky="ew")
+
+    def _on_item_pin(self, item: ClipboardEntry) -> None:
+        """Handle pinning/unpinning an item."""
+        self.db.toggle_pin(item.item_id)
+        self._refresh_items(self.search_var.get())
+
+    def _on_item_delete(self, item: ClipboardEntry) -> None:
+        """Handle deleting an item."""
+        self.db.delete_entry(item.item_id)
+        self._refresh_items(self.search_var.get())
 
     def _on_item_click(self, item: ClipboardEntry) -> None:
         """Handle clicking an item: move to top, copy, and paste."""
@@ -183,6 +208,9 @@ class RecallUI(ctk.CTk):
     def _hide_window(self, event=None) -> None:
         """Hide the UI."""
         self.withdraw()
+        # Destroy all item widgets to ensure any floating tooltips are cleaned up
+        for widget in self.scrollable_frame.winfo_children():
+            widget.destroy()
 
     def _poll_commands(self) -> None:
         """Check for messages from background threads."""

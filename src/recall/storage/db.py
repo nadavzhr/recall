@@ -42,18 +42,30 @@ class RecallDatabase:
                     content_data BLOB,
                     thumbnail_data BLOB,
                     timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    is_pinned BOOLEAN DEFAULT 0,
+                    last_used_timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    size_bytes INTEGER DEFAULT 0,
                     UNIQUE(content_text, content_data)
                 )
                 """
             )
             
-            # Migration: Ensure content_data exists
+            # Migration: Ensure new columns exist
             cursor.execute("PRAGMA table_info(clipboard_history)")
             columns = [info[1] for info in cursor.fetchall()]
             if "content_data" not in columns:
                 cursor.execute("ALTER TABLE clipboard_history ADD COLUMN content_data BLOB")
             if "thumbnail_data" not in columns:
                 cursor.execute("ALTER TABLE clipboard_history ADD COLUMN thumbnail_data BLOB")
+            if "is_pinned" not in columns:
+                cursor.execute("ALTER TABLE clipboard_history ADD COLUMN is_pinned BOOLEAN DEFAULT 0")
+            if "last_used_timestamp" not in columns:
+                # SQLite ALTER TABLE does not support CURRENT_TIMESTAMP as a default.
+                cursor.execute("ALTER TABLE clipboard_history ADD COLUMN last_used_timestamp DATETIME")
+                # Backfill last_used_timestamp with timestamp
+                cursor.execute("UPDATE clipboard_history SET last_used_timestamp = timestamp")
+            if "size_bytes" not in columns:
+                cursor.execute("ALTER TABLE clipboard_history ADD COLUMN size_bytes INTEGER DEFAULT 0")
             
             conn.commit()
 
@@ -70,6 +82,13 @@ class RecallDatabase:
 
         if content_type == "text" and content_text is not None and not content_text.strip():
             return
+
+        # Calculate size
+        size_bytes = 0
+        if content_text is not None:
+            size_bytes = len(content_text.encode('utf-8'))
+        elif content_data is not None:
+            size_bytes = len(content_data)
 
         with self._connect() as conn:
             cursor = conn.cursor()
@@ -88,35 +107,36 @@ class RecallDatabase:
             existing = cursor.fetchone()
 
             if existing:
-                # Update timestamp to move to top
+                # Update last_used_timestamp to move to top, keeping original timestamp (creation date)
                 cursor.execute(
-                    "UPDATE clipboard_history SET timestamp = CURRENT_TIMESTAMP WHERE id = ?",
+                    "UPDATE clipboard_history SET last_used_timestamp = CURRENT_TIMESTAMP WHERE id = ?",
                     (existing[0],),
                 )
             else:
-                # Insert new
+                # Insert new (explicitly pass CURRENT_TIMESTAMP to last_used_timestamp in case of altered table)
                 cursor.execute(
                     """
-                    INSERT INTO clipboard_history (content_type, content_text, content_data, thumbnail_data)
-                    VALUES (?, ?, ?, ?)
+                    INSERT INTO clipboard_history (content_type, content_text, content_data, thumbnail_data, size_bytes, last_used_timestamp)
+                    VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
                     """,
-                    (content_type, content_text, content_data, thumbnail_data),
+                    (content_type, content_text, content_data, thumbnail_data, size_bytes),
                 )
             conn.commit()
 
         self._enforce_limit()
 
     def _enforce_limit(self) -> None:
-        """Keep the database size bounded efficiently."""
+        """Keep the database size bounded efficiently, protecting pinned items."""
         with self._connect() as conn:
             cursor = conn.cursor()
-            # We delete by timestamp to support the 'Move-to-Top' logic
+            # We delete unpinned items beyond the limit, sorted by last usage
             cursor.execute(
                 """
                 DELETE FROM clipboard_history
-                WHERE id NOT IN (
+                WHERE is_pinned = 0 AND id NOT IN (
                     SELECT id FROM clipboard_history
-                    ORDER BY timestamp DESC
+                    WHERE is_pinned = 0
+                    ORDER BY last_used_timestamp DESC
                     LIMIT ?
                 )
                 """,
@@ -125,7 +145,7 @@ class RecallDatabase:
             conn.commit()
 
     def get_recent(self, limit: int = 10) -> list[ClipboardEntry]:
-        """Fetch recent entries ordered by timestamp (newest first)."""
+        """Fetch recent entries ordered by pin status then last usage."""
         if limit <= 0:
             return []
 
@@ -133,9 +153,9 @@ class RecallDatabase:
             cursor = conn.cursor()
             cursor.execute(
                 """
-                SELECT id, content_type, content_text, content_data, thumbnail_data, timestamp
+                SELECT id, content_type, content_text, content_data, thumbnail_data, timestamp, is_pinned, last_used_timestamp, size_bytes
                 FROM clipboard_history
-                ORDER BY timestamp DESC
+                ORDER BY is_pinned DESC, last_used_timestamp DESC
                 LIMIT ?
                 """,
                 (limit,),
@@ -146,5 +166,33 @@ class RecallDatabase:
         for row in rows:
             # SQLite CURRENT_TIMESTAMP is 'YYYY-MM-DD HH:MM:SS'
             dt = datetime.strptime(row[5], "%Y-%m-%d %H:%M:%S")
-            entries.append(ClipboardEntry(row[0], row[1], row[2], row[3], row[4], dt))
+            last_used_dt = datetime.strptime(row[7], "%Y-%m-%d %H:%M:%S")
+            entries.append(ClipboardEntry(
+                item_id=row[0], 
+                content_type=row[1], 
+                content_text=row[2], 
+                content_data=row[3], 
+                thumbnail_data=row[4], 
+                timestamp=dt,
+                is_pinned=bool(row[6]),
+                last_used_timestamp=last_used_dt,
+                size_bytes=row[8]
+            ))
         return entries
+
+    def toggle_pin(self, item_id: int) -> None:
+        """Toggle the pinned status of a clipboard entry."""
+        with self._connect() as conn:
+            cursor = conn.cursor()
+            cursor.execute(
+                "UPDATE clipboard_history SET is_pinned = NOT is_pinned WHERE id = ?",
+                (item_id,)
+            )
+            conn.commit()
+
+    def delete_entry(self, item_id: int) -> None:
+        """Delete a specific clipboard entry by its ID."""
+        with self._connect() as conn:
+            cursor = conn.cursor()
+            cursor.execute("DELETE FROM clipboard_history WHERE id = ?", (item_id,))
+            conn.commit()
