@@ -127,25 +127,66 @@ class ClipboardListener:
         self._state = ListenerState()
         self._window: Win32MessageWindow | None = None
 
+    def _handle_text(self, text: str) -> None:
+        """Process text clipboard content."""
+        content_hash = hashlib.blake2b(text.encode("utf-8"), digest_size=16).digest()
+        if content_hash != self._state.last_content_hash:
+            self._state.last_content_hash = content_hash
+            self._queue.put(ClipboardEvent(content_type="text", content_text=text))
+
+    def _handle_image(self) -> None:
+        """Process image clipboard content."""
+        from PIL import ImageGrab, Image
+        import io
+        try:
+            img = ImageGrab.grabclipboard()
+            if isinstance(img, Image.Image):
+                # Convert to bytes (PNG)
+                img_byte_arr = io.BytesIO()
+                img.save(img_byte_arr, format='PNG')
+                full_bytes = img_byte_arr.getvalue()
+                
+                content_hash = hashlib.blake2b(full_bytes, digest_size=16).digest()
+                if content_hash != self._state.last_content_hash:
+                    self._state.last_content_hash = content_hash
+                    
+                    # Create thumbnail
+                    img.thumbnail((250, 250))
+                    thumb_byte_arr = io.BytesIO()
+                    img.save(thumb_byte_arr, format='PNG')
+                    thumb_bytes = thumb_byte_arr.getvalue()
+                    
+                    self._queue.put(ClipboardEvent(
+                        content_type="image",
+                        content_data=full_bytes,
+                        thumbnail_data=thumb_bytes
+                    ))
+        except Exception as e:
+            logger.debug("Failed to grab image from clipboard: %s", e)
+
     def _process_update(self) -> None:
         """Inspect the clipboard and queue events for supported formats."""
+        has_text = False
+        has_image = False
+        text = None
+
         try:
             with open_clipboard():
                 # 1. Handle Text
                 if win32clipboard.IsClipboardFormatAvailable(win32con.CF_UNICODETEXT):
                     text = win32clipboard.GetClipboardData(win32con.CF_UNICODETEXT)  # type: ignore
-                    
-                    content_hash = hashlib.blake2b(text.encode("utf-8"), digest_size=16).digest()
-                    if content_hash != self._state.last_content_hash:
-                        self._state.last_content_hash = content_hash
-                        self._queue.put(ClipboardEvent(content_type="text", content_text=text))
-
-                # 2. Handle Images (Placeholder for future implementation)
+                    has_text = True
+                # 2. Handle Images
                 elif win32clipboard.IsClipboardFormatAvailable(win32con.CF_DIB):
-                    pass
-
+                    has_image = True
         except pywintypes.error as e:
             logger.debug("Clipboard access error: %s", e)
+            return
+
+        if has_text and text is not None:
+            self._handle_text(text)
+        elif has_image:
+            self._handle_image()
 
     def _on_hotkey(self, wparam: int) -> None:
         logger.info("WM_HOTKEY received! wparam: %s, hotkey_id: %s", wparam, self._state.hotkey_id)

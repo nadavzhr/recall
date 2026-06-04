@@ -23,6 +23,7 @@ def process_event(event: ClipboardEvent, database: RecallDatabase) -> None:
             content_type=event.content_type,
             content_text=event.content_text,
             content_data=event.content_data,
+            thumbnail_data=event.thumbnail_data,
         )
         if event.content_type == "text" and event.content_text:
             logger.info("Ingested text: %s", truncate_text(event.content_text))

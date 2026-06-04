@@ -50,6 +50,35 @@ def set_clipboard_text(text: str) -> bool:
         return False
 
 
+def set_clipboard_image(image_bytes: bytes) -> bool:
+    """Put an image back onto the Windows clipboard.
+    
+    Args:
+        image_bytes: PNG or other image bytes.
+        
+    Returns:
+        True if successful, False otherwise.
+    """
+    from PIL import Image
+    import io
+    
+    try:
+        img = Image.open(io.BytesIO(image_bytes))
+        
+        # Windows clipboard needs a DIB. We can use io.BytesIO and save as BMP.
+        output = io.BytesIO()
+        img.convert("RGB").save(output, "BMP")
+        data = output.getvalue()[14:] # The BMP file header is 14 bytes
+        
+        with open_clipboard():
+            win32clipboard.EmptyClipboard()  # type: ignore
+            win32clipboard.SetClipboardData(win32con.CF_DIB, data)  # type: ignore
+            return True
+    except Exception as e:
+        logger.error("Failed to set clipboard image: %s", e)
+        return False
+
+
 def simulate_paste() -> None:
     """Simulate a Ctrl+V keypress to paste the current clipboard contents."""
     import keyboard

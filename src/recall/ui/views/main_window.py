@@ -136,7 +136,7 @@ class RecallUI(ctk.CTk):
         """Handle clicking an item: move to top, copy, and paste."""
         if item.content_type == "text" and item.content_text:
             # 1. Update database to move it to the top
-            self.db.insert_entry("text", item.content_text)
+            self.db.insert_entry("text", content_text=item.content_text)
             
             # 2. Set to Windows clipboard
             set_clipboard_text(item.content_text)
@@ -145,6 +145,19 @@ class RecallUI(ctk.CTk):
             self._hide_window()
 
             # 4. Simulate Paste (small delay to allow window to lose focus)
+            self.after(50, simulate_paste)
+            
+        elif item.content_type == "image" and item.content_data:
+            # 1. Update database to move it to the top
+            self.db.insert_entry("image", content_data=item.content_data, thumbnail_data=item.thumbnail_data)
+            
+            # 2. Set to Windows clipboard
+            set_clipboard_image(item.content_data)
+            
+            # 3. Hide window
+            self._hide_window()
+
+            # 4. Simulate Paste
             self.after(50, simulate_paste)
 
     def _show_window(self) -> None:

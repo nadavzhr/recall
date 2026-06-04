@@ -11,6 +11,7 @@ class ClipboardEntry:
     content_type: str
     content_text: str | None
     content_data: bytes | None
+    thumbnail_data: bytes | None
     timestamp: datetime
 
 @dataclass(frozen=True)
@@ -19,3 +20,4 @@ class ClipboardEvent:
     content_type: str
     content_text: str | None = None
     content_data: bytes | None = None
+    thumbnail_data: bytes | None = None

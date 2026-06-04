@@ -2,6 +2,8 @@
 
 from typing import Callable
 import customtkinter as ctk
+import io
+from PIL import Image
 
 from recall.models import ClipboardEntry
 
@@ -26,18 +28,27 @@ class ItemWidget(ctk.CTkButton):
         self.on_click_callback = on_click
         
         preview_text = ""
+        image = None
+        
         if item.content_type == "text" and item.content_text:
             preview_text = item.content_text.strip().replace("\n", " ↵ ")
             if len(preview_text) > 100:
                 preview_text = preview_text[:97] + "..."
+        elif item.content_type == "image" and item.thumbnail_data:
+            try:
+                pil_image = Image.open(io.BytesIO(item.thumbnail_data))
+                image = ctk.CTkImage(light_image=pil_image, dark_image=pil_image, size=pil_image.size)
+            except Exception:
+                preview_text = "<Corrupted Image>"
         else:
             preview_text = f"<{item.content_type}>"
 
         super().__init__(
             master,
             text=preview_text,
-            anchor="w",
-            height=50,
+            image=image,
+            anchor="w" if not image else "center",
+            height=50 if image is None else image.cget("size")[1] + 20,
             corner_radius=6,
             fg_color="transparent",
             text_color="#e4e4e7",
@@ -54,3 +65,4 @@ class ItemWidget(ctk.CTkButton):
     def _handle_click(self, event=None) -> None:
         """Trigger the click callback."""
         self.on_click_callback(self.item)
+

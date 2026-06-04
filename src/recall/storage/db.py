@@ -40,6 +40,7 @@ class RecallDatabase:
                     content_type TEXT NOT NULL,
                     content_text TEXT,
                     content_data BLOB,
+                    thumbnail_data BLOB,
                     timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
                     UNIQUE(content_text, content_data)
                 )
@@ -51,6 +52,8 @@ class RecallDatabase:
             columns = [info[1] for info in cursor.fetchall()]
             if "content_data" not in columns:
                 cursor.execute("ALTER TABLE clipboard_history ADD COLUMN content_data BLOB")
+            if "thumbnail_data" not in columns:
+                cursor.execute("ALTER TABLE clipboard_history ADD COLUMN thumbnail_data BLOB")
             
             conn.commit()
 
@@ -59,6 +62,7 @@ class RecallDatabase:
         content_type: str,
         content_text: str | None = None,
         content_data: bytes | None = None,
+        thumbnail_data: bytes | None = None,
     ) -> None:
         """Insert a clipboard entry or move an existing entry to the top of the history."""
         if not content_type:
@@ -93,10 +97,10 @@ class RecallDatabase:
                 # Insert new
                 cursor.execute(
                     """
-                    INSERT INTO clipboard_history (content_type, content_text, content_data)
-                    VALUES (?, ?, ?)
+                    INSERT INTO clipboard_history (content_type, content_text, content_data, thumbnail_data)
+                    VALUES (?, ?, ?, ?)
                     """,
-                    (content_type, content_text, content_data),
+                    (content_type, content_text, content_data, thumbnail_data),
                 )
             conn.commit()
 
@@ -129,7 +133,7 @@ class RecallDatabase:
             cursor = conn.cursor()
             cursor.execute(
                 """
-                SELECT id, content_type, content_text, content_data, timestamp
+                SELECT id, content_type, content_text, content_data, thumbnail_data, timestamp
                 FROM clipboard_history
                 ORDER BY timestamp DESC
                 LIMIT ?
@@ -141,6 +145,6 @@ class RecallDatabase:
         entries = []
         for row in rows:
             # SQLite CURRENT_TIMESTAMP is 'YYYY-MM-DD HH:MM:SS'
-            dt = datetime.strptime(row[4], "%Y-%m-%d %H:%M:%S")
-            entries.append(ClipboardEntry(row[0], row[1], row[2], row[3], dt))
+            dt = datetime.strptime(row[5], "%Y-%m-%d %H:%M:%S")
+            entries.append(ClipboardEntry(row[0], row[1], row[2], row[3], row[4], dt))
         return entries
