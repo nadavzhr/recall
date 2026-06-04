@@ -59,6 +59,6 @@ Make sure you have Python 3.11+ and `uv` installed.
 
 ```bash
 uv sync
-uv run src/recall/main.py
+uv run recall
 ```
 *Press `Ctrl+Alt+V` to open the UI.*
