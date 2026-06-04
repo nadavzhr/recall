@@ -2,6 +2,12 @@
 
 from __future__ import annotations
 from dataclasses import dataclass
+from datetime import datetime
+from enum import Enum
+
+class Command(str, Enum):
+    """Commands sent to the UI from background processes."""
+    SHOW_GUI = "SHOW_GUI"
 
 @dataclass(frozen=True, slots=True)
 class ClipboardEntry:
@@ -10,7 +16,7 @@ class ClipboardEntry:
     content_type: str
     content_text: str | None
     content_data: bytes | None
-    timestamp: str
+    timestamp: datetime
 
 @dataclass(frozen=True)
 class ClipboardEvent:

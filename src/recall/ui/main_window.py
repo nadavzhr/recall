@@ -6,18 +6,18 @@ import time
 
 from recall.core.db import RecallDatabase
 from recall.core.clipboard import set_clipboard_text, simulate_paste
-from recall.models import ClipboardEntry
+from recall.models import ClipboardEntry, Command
 from recall import config
 
 class RecallUI(ctk.CTk):
     """Main window for Recall UI."""
 
-    def __init__(self, db: RecallDatabase, command_queue: queue.Queue[str]) -> None:
+    def __init__(self, db: RecallDatabase, command_queue: queue.Queue[Command]) -> None:
         """Initialize the UI.
 
         Args:
             db: Database instance for querying clipboard history.
-            command_queue: Queue to listen for 'SHOW_GUI' commands.
+            command_queue: Queue to listen for commands.
         """
         super().__init__()
         self.db = db
@@ -200,7 +200,7 @@ class RecallUI(ctk.CTk):
         try:
             while True:
                 cmd = self.command_queue.get_nowait()
-                if cmd == "SHOW_GUI":
+                if cmd == Command.SHOW_GUI:
                     import logging
                     logging.getLogger(__name__).info("SHOW_GUI command received by UI thread. Showing window.")
                     self._show_window()

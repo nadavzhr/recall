@@ -10,6 +10,7 @@ from recall.core.db import RecallDatabase
 from recall.core.listener import ClipboardListener, ClipboardEvent
 from recall.utils import truncate_text
 from recall.ui.main_window import RecallUI
+from recall.models import Command
 
 logger = logging.getLogger(__name__)
 
@@ -60,7 +61,7 @@ def main() -> None:
 
     database = RecallDatabase()
     event_queue: queue.Queue[ClipboardEvent] = queue.Queue()
-    command_queue: queue.Queue[str] = queue.Queue()
+    command_queue: queue.Queue[Command] = queue.Queue()
     
     clipboard_listener = ClipboardListener(event_queue=event_queue, command_queue=command_queue)
 
@@ -75,7 +76,7 @@ def main() -> None:
         # Setup global hotkey using keyboard module
         def trigger_gui():
             logger.info("Hotkey pressed. Enqueueing SHOW_GUI command.")
-            command_queue.put("SHOW_GUI")
+            command_queue.put(Command.SHOW_GUI)
             
         keyboard.add_hotkey(config.HOTKEY_STRING, trigger_gui)
         

@@ -5,6 +5,7 @@ from __future__ import annotations
 import logging
 from pathlib import Path
 import sqlite3
+from datetime import datetime
 
 from recall.models import ClipboardEntry
 from recall import config
@@ -137,4 +138,9 @@ class RecallDatabase:
             )
             rows = cursor.fetchall()
 
-        return [ClipboardEntry(*row) for row in rows]
+        entries = []
+        for row in rows:
+            # SQLite CURRENT_TIMESTAMP is 'YYYY-MM-DD HH:MM:SS'
+            dt = datetime.strptime(row[4], "%Y-%m-%d %H:%M:%S")
+            entries.append(ClipboardEntry(row[0], row[1], row[2], row[3], dt))
+        return entries
