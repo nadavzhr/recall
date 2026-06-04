@@ -4,9 +4,11 @@ import queue
 import customtkinter as ctk
 import time
 
-from recall.core.db import RecallDatabase
-from recall.core.clipboard import set_clipboard_text, simulate_paste
-from recall.models import ClipboardEntry, Command
+from recall.storage.db import RecallDatabase
+from recall.clipboard.operations import set_clipboard_text, simulate_paste
+from recall.models import ClipboardEntry
+from recall.ui.commands import Command
+from recall.ui.components.item_widget import ItemWidget
 from recall import config
 
 class RecallUI(ctk.CTk):
@@ -125,36 +127,10 @@ class RecallUI(ctk.CTk):
             items = [item for item in items if item.content_text and query_lower in item.content_text.lower()]
 
         for i, item in enumerate(items):
-            self._create_item_widget(item, row=i)
-
-    def _create_item_widget(self, item: ClipboardEntry, row: int) -> None:
-        """Create a widget for a single clipboard entry."""
-        if not item.content_text:
-            return
-
-        # Clean preview text
-        preview_text = item.content_text.strip().replace("\n", " ↵ ")
-        if len(preview_text) > 100:
-            preview_text = preview_text[:97] + "..."
-
-        btn = ctk.CTkButton(
-            self.scrollable_frame,
-            text=preview_text,
-            anchor="w",
-            height=50,
-            corner_radius=6,
-            fg_color="transparent",
-            text_color="#e4e4e7",
-            hover_color="#27272a",
-            font=("Segoe UI", 14)
-        )
-        btn.grid(row=row, column=0, pady=4, padx=10, sticky="ew")
-        
-        # Bind double left click to copy/paste
-        btn.bind("<Double-Button-1>", lambda e, i=item: self._on_item_click(i))
-        
-        # Also bind Return key if we add keyboard navigation later
-        btn.bind("<Return>", lambda e, i=item: self._on_item_click(i))
+            # We don't skip empty content texts here anymore to support generic display 
+            # if images/other contents exist, though currently only text is handled.
+            widget = ItemWidget(self.scrollable_frame, item=item, on_click=self._on_item_click)
+            widget.grid(row=i, column=0, pady=4, padx=10, sticky="ew")
 
     def _on_item_click(self, item: ClipboardEntry) -> None:
         """Handle clicking an item: move to top, copy, and paste."""

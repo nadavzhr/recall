@@ -14,8 +14,9 @@ import win32clipboard
 import win32con
 import win32gui
 
-from recall.models import ClipboardEvent, Command
-from recall.core.clipboard import open_clipboard
+from recall.models import ClipboardEvent
+from recall.ui.commands import Command
+from recall.clipboard.operations import open_clipboard
 
 logger = logging.getLogger(__name__)
 

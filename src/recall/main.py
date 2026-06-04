@@ -6,11 +6,12 @@ import time
 import threading
 
 from recall import config
-from recall.core.db import RecallDatabase
-from recall.core.listener import ClipboardListener, ClipboardEvent
+from recall.storage.db import RecallDatabase
+from recall.clipboard.listener import ClipboardListener
 from recall.utils import truncate_text
-from recall.ui.main_window import RecallUI
-from recall.models import Command
+from recall.ui.views.main_window import RecallUI
+from recall.models import ClipboardEvent
+from recall.ui.commands import Command
 
 logger = logging.getLogger(__name__)
 
